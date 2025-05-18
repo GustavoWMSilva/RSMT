@@ -1,13 +1,21 @@
 import random
 
 import numpy as np
-import pytorch3d
 import torch.utils.data
-from pytorch3d.transforms import quaternion_apply, quaternion_multiply
+
 
 from src.Datasets.BaseLoader import BasedDataProcessor
 from src.Datasets.augmentation import angle_between_quats_along_y
-from src.geometry.quaternions import quat_to_or6D, or6d_to_quat, from_to_1_0_0
+from src.geometry.quaternions import (
+    quaternion_apply,
+    quaternion_multiply,
+    quaternion_invert,
+    axis_angle_to_quaternion,
+    quat_to_or6D,
+    or6d_to_quat,
+    from_to_1_0_0,
+)
+
 
 
 class BatchProcessDatav2(torch.nn.Module):
@@ -29,7 +37,7 @@ class BatchUnProcessDatav2(torch.nn.Module):
         super(BatchUnProcessDatav2, self).__init__()
     def forward(self,glb_pos,glb_rot,glb_vel,root_rotation):
         # glb_pos: N,T,J,3
-        inverse_rot = pytorch3d.transforms.quaternion_invert(root_rotation)
+        inverse_rot = quaternion_invert(root_rotation)
         glb_pos = quaternion_apply(inverse_rot,glb_pos)
         out_pos = torch.empty(size=glb_rot.shape[:-1]+(3,),dtype=glb_pos.dtype,device=glb_pos.device)
         out_pos[:,0:1,:,:] = glb_pos[:,0:1,:,:]
@@ -48,8 +56,21 @@ class BatchProcessData(torch.nn.Module):#(B,T,J,dim)
     def __init__(self):
         super(BatchProcessData, self).__init__()
     def forward(self,global_rotations,global_positions):
-        ref_vector = torch.cross(global_positions[...,5:6,:]-global_positions[...,1:2,:],torch.tensor([0,1,0],dtype=global_positions.dtype,device=global_positions.device),dim=-1)
+        # Antes
+        # ref_vector = torch.cross(global_positions[...,5:6,:]-global_positions[...,1:2,:],torch.tensor([0,1,0],dtype=global_positions.dtype,device=global_positions.device),dim=-1)
+        # Depois
+        # batch_shape = global_positions.shape[:2]  # (B, T)
+        # y_axis = torch.tensor([0, 1, 0], dtype=global_positions.dtype, device=global_positions.device)
+        # y_axis = y_axis.view(1, 1, 1, 3).expand(*batch_shape, 1, 3)  # (B, T, 1, 3)
 
+        dir_vec = global_positions[..., 5:6, :] - global_positions[..., 1:2, :]  # tem shape [..., 1, 3]
+        up_vector = torch.tensor([0, 1, 0], dtype=global_positions.dtype, device=global_positions.device)
+
+        # Expande para ter shape igual ao dir_vec
+        up_vector = up_vector.view(*([1] * (dir_vec.dim() - 1)), 3)
+
+        ref_vector = torch.cross(dir_vec, up_vector, dim=-1)
+        # 
         root_rotation = from_to_1_0_0(ref_vector)
         """ Local Space """
         local_positions = global_positions.clone()
@@ -89,7 +110,7 @@ class UnProcessData(torch.nn.Module):
         shape[-1] = 3
         axis = torch.zeros(size = shape,device=r.device)
         axis[...,0:3] = torch.tensor([0,1,0])
-        rotation = pytorch3d.transforms.axis_angle_to_quaternion(axis * r)  # B,T,1,4
+        rotation = axis_angle_to_quaternion(axis * r)  # B,T,1,4
         return rotation
     def get_global_xz(self,global_hip_rot,hip_velocity):
         root_velocity3D = torch.zeros(size=(hip_velocity.shape[0], hip_velocity.shape[1], 1, 3),device=global_hip_rot.device,dtype=hip_velocity.dtype)
@@ -133,8 +154,17 @@ class BatchRotateYCenterXZ(torch.nn.Module):
     def __init__(self):
         super(BatchRotateYCenterXZ, self).__init__()
     def forward(self,global_positions,global_quats,ref_frame_id):
-        ref_vector = torch.cross(global_positions[:, ref_frame_id:ref_frame_id+1, 5:6, :] - global_positions[:, ref_frame_id:ref_frame_id+1, 1:2, :],
-                                 torch.tensor([0, 1, 0], dtype=global_positions.dtype, device=global_positions.device).view(1,1,1,3),dim=-1)
+        # ref_vector = torch.cross(global_positions[:, ref_frame_id:ref_frame_id+1, 5:6, :] - global_positions[:, ref_frame_id:ref_frame_id+1, 1:2, :],
+        #                          torch.tensor([0, 1, 0], dtype=global_positions.dtype, device=global_positions.device).view(1,1,1,3),dim=-1)
+        # Depois
+        dir_vec = global_positions[:, ref_frame_id:ref_frame_id+1, 5:6, :] - global_positions[:, ref_frame_id:ref_frame_id+1, 1:2, :]
+
+        # up_vector expandido com o mesmo shape de dir_vec
+        up_vector = torch.tensor([0, 1, 0], dtype=global_positions.dtype, device=global_positions.device)
+        up_vector = up_vector.view(1, 1, 1, 3).expand_as(dir_vec)
+
+        ref_vector = torch.cross(dir_vec, up_vector, dim=-1)
+        # 
         root_rotation = from_to_1_0_0(ref_vector)
 
         ref_hip = torch.mean(global_positions[:,:,0:1,[0,2]],dim=(1),keepdim=True)

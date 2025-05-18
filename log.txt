@@ -1,0 +1,5 @@
+>>> Preprocessando dataset...
+./venv/Scripts/python.exe process_dataset.py --preprocess
+process_begin: CreateProcess(NULL, ./venv/Scripts/python.exe process_dataset.py --preprocess, ...) failed.
+make (e=2): O sistema não pode encontrar o arquivo especificado.
+make: *** [Makefile:14: preprocess] Error 2

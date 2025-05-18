@@ -3,10 +3,18 @@ from typing import Optional
 
 import numpy as np
 import torch
-from pytorch3d.transforms import quaternion_multiply, quaternion_apply, quaternion_invert
-from src.geometry.quaternions import slerp, from_to_1_0_0
 from src.geometry.vector import normalize_vector
 from src.utils.BVH_mod import Skeleton
+from src.geometry.quaternions import (
+    quaternion_apply,
+    quaternion_multiply,
+    quaternion_invert,
+    axis_angle_to_quaternion,
+    quat_to_or6D,
+    or6d_to_quat,
+    from_to_1_0_0,
+    slerp,
+)
 def find_Yrotation_to_align_with_Xplus(q):
     '''Warning: the quat must be along y axis'''
     """

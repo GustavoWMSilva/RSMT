@@ -1,7 +1,15 @@
-matplotlib==3.5.2
-numpy==1.22.3
-pandas==1.4.3
-pytorch3d==0.4.0
+# --extra-index-url https://download.pytorch.org/whl/cu118
+
+# torch==2.2.0+cu118
+# torchvision==0.17.0+cu118
+# torchaudio==2.2.0+cu118
+
+numpy==1.26.3
+matplotlib==3.8.4
+pandas==2.2.2
+scipy==1.13.0
 pytorch_lightning==1.5.10
-scipy==1.9.0
-torch==1.13.0+cu117
+tqdm>=4.41.0
+pyyaml>=5.1
+future>=0.17.1
+tensorboard>=2.2.0

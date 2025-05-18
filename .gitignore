@@ -20,3 +20,7 @@ test2/
 *.bvh
 Experiment
 *.fbx
+# Ambiente virtual Python
+.venv/
+venv/  
+MotionData/100STYLE/

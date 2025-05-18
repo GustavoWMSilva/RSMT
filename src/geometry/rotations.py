@@ -1,8 +1,18 @@
-from pytorch3d.transforms import rotation_6d_to_matrix, quaternion_to_matrix
 import torch.nn.functional as F
 from src.geometry.vector import cross_product, normalize_vector
 import torch
 import numpy as np
+from src.geometry.quaternions import (
+    quaternion_apply,
+    quaternion_multiply,
+    quaternion_invert,
+    axis_angle_to_quaternion,
+    rotation_6d_to_matrix,
+    quaternion_to_matrix,
+    quat_to_or6D,
+    or6d_to_quat,
+    from_to_1_0_0,
+)
 
 # m: batch*3*3
 # out: batch*4*4

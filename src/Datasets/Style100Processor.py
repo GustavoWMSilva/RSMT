@@ -222,7 +222,7 @@ class StyleLoader():
         self.train_motions = {}
         self.test_motions = {}
         # 镜像数据集：
-        from src.Datasets.BatchProcessor import BatchMirror
+        from src.Datasets.augmentation import BatchMirror
         batch_mirror = BatchMirror(self.skeleton, 1.)
         for style in self.style_names[:-10]:
             self.train_motions[style]={}

@@ -2,7 +2,6 @@ import torch
 import torch.nn.functional as F
 from src.geometry.vector import normalize_vector
 import numpy as np
-import pytorch3d.transforms
 def rotation_6d_to_matrix_no_normalized(d6: torch.Tensor) -> torch.Tensor:
     a1, a2 = d6[..., :3], d6[..., 3:]
     # b1 = F.normalize(a1, dim=-1)
@@ -12,25 +11,25 @@ def rotation_6d_to_matrix_no_normalized(d6: torch.Tensor) -> torch.Tensor:
     return torch.stack((a1, a2), dim=-2)
 
 def rotation6d_multiply(r1,r2):
-    r1 = pytorch3d.transforms.rotation_6d_to_matrix(r1)
-    r2 = pytorch3d.transforms.rotation_6d_to_matrix(r2)
-    return pytorch3d.transforms.matrix_to_rotation_6d(torch.matmul(r1,r2))
+    r1 = rotation_6d_to_matrix(r1)
+    r2 = rotation_6d_to_matrix(r2)
+    return matrix_to_rotation_6d(torch.matmul(r1,r2))
 def rotation6d_apply(r,p):
     #p :...3
-    r = pytorch3d.transforms.rotation_6d_to_matrix(r)
+    r = rotation_6d_to_matrix(r)
     p = p.unsqueeze(-1)#...3,1
     return torch.matmul(r,p).squeeze(-1)
 def rotation6d_inverse(r):
-    r = pytorch3d.transforms.rotation_6d_to_matrix(r)
+    r = rotation_6d_to_matrix(r)
     inv_r = torch.transpose(r,-2,-1)
-    return pytorch3d.transforms.matrix_to_rotation_6d(inv_r)
+    return matrix_to_rotation_6d(inv_r)
 def quat_to_or6D(quat):
 
     assert(quat.shape[-1]==4)
-    return pytorch3d.transforms.matrix_to_rotation_6d(pytorch3d.transforms.quaternion_to_matrix(quat))
+    return matrix_to_rotation_6d(quaternion_to_matrix(quat))
 def or6d_to_quat(mat):
     assert (mat.shape[-1] == 6)
-    return pytorch3d.transforms.matrix_to_quaternion(pytorch3d.transforms.rotation_6d_to_matrix(mat))
+    return matrix_to_quaternion(rotation_6d_to_matrix(mat))
 def normalized_or6d(d6):
     a1, a2 = d6[..., :3], d6[..., 3:]
     b1 = F.normalize(a1, dim=-1)
@@ -64,7 +63,7 @@ def from_to_1_0_0(v_from):
     to_transform = to_transform.view(-1,3,3)
     from_transform = from_transform.view(-1,3,3)
     r = torch.matmul(to_transform,from_transform.transpose(1,2)).view(shape)
-    rq = pytorch3d.transforms.matrix_to_quaternion(r)
+    rq = matrix_to_quaternion(r)
 
     # w = (v_from_unit * v_to_unit).sum(dim=1) + 1
     # '''can't cross if two directions are exactly inverse'''
@@ -93,11 +92,11 @@ def from_to_quaternion(v_from, v_to):
     return normalize_vector(q)
 
 def quat_inv(quat):
-    return pytorch3d.transforms.quaternion_invert(quat)
+    return quaternion_invert(quat)
 def quat_mul(quat0,quat1):
-    return pytorch3d.transforms.quaternion_multiply(quat0,quat1)
+    return quaternion_multiply(quat0,quat1)
 def quat_mul_vec(quat,vec):
-    return pytorch3d.transforms.quaternion_apply(quat,vec)
+    return quaternion_apply(quat,vec)
 def slerp(q0, q1, t):
     """
     Spherical Linear Interpolation of quaternions
@@ -128,3 +127,96 @@ def slerp(q0, q1, t):
     # If the angle was constant, prevent nans by picking the original quat:
     qt = torch.where(torch.abs(cos_half_theta) >= 1.0-1e-8, q0, qt)
     return qt
+
+def quaternion_to_matrix(q):
+    """Converte um quaternion (w, x, y, z) para matriz de rotação 3x3"""
+    w, x, y, z = q.unbind(-1)
+    B = q.shape[:-1]
+    R = torch.empty(B + (3, 3), dtype=q.dtype, device=q.device)
+
+    R[..., 0, 0] = 1 - 2*y*y - 2*z*z
+    R[..., 0, 1] = 2*x*y - 2*z*w
+    R[..., 0, 2] = 2*x*z + 2*y*w
+
+    R[..., 1, 0] = 2*x*y + 2*z*w
+    R[..., 1, 1] = 1 - 2*x*x - 2*z*z
+    R[..., 1, 2] = 2*y*z - 2*x*w
+
+    R[..., 2, 0] = 2*x*z - 2*y*w
+    R[..., 2, 1] = 2*y*z + 2*x*w
+    R[..., 2, 2] = 1 - 2*x*x - 2*y*y
+    return R
+
+def matrix_to_quaternion(M):
+    """Converte matriz de rotação 3x3 para quaternion (w, x, y, z)"""
+    m = M
+    B = m.shape[:-2]
+    q = torch.empty(B + (4,), dtype=m.dtype, device=m.device)
+
+    t = m[..., 0, 0] + m[..., 1, 1] + m[..., 2, 2]
+    cond = t > 0
+    not_cond = ~cond
+
+    t_sqrt = torch.sqrt(1.0 + t[cond]) * 2
+    q[cond, 0] = 0.25 * t_sqrt
+    q[cond, 1] = (m[cond, 2, 1] - m[cond, 1, 2]) / t_sqrt
+    q[cond, 2] = (m[cond, 0, 2] - m[cond, 2, 0]) / t_sqrt
+    q[cond, 3] = (m[cond, 1, 0] - m[cond, 0, 1]) / t_sqrt
+
+    # fallback para casos onde t <= 0
+    q[not_cond] = torch.tensor([1, 0, 0, 0], dtype=m.dtype, device=m.device)
+
+    return q
+
+def rotation_6d_to_matrix(d6):
+    """Converte vetor 6D para matriz de rotação (Zhou et al. 2019)"""
+    a1 = d6[..., 0:3]
+    a2 = d6[..., 3:6]
+
+    b1 = F.normalize(a1, dim=-1)
+    b2 = F.normalize(a2 - (b1 * a2).sum(-1, keepdim=True) * b1, dim=-1)
+    b3 = torch.cross(b1, b2, dim=-1)
+
+    return torch.stack((b1, b2, b3), dim=-2)
+
+def matrix_to_rotation_6d(matrix):
+    """Converte matriz de rotação para vetor 6D"""
+    return matrix[..., :2, :].reshape(*matrix.shape[:-2], 6)
+
+def quaternion_multiply(q, r):
+    """ Multiplica dois quaternions: q * r """
+    assert q.shape[-1] == 4 and r.shape[-1] == 4
+    w1, x1, y1, z1 = q.unbind(-1)
+    w2, x2, y2, z2 = r.unbind(-1)
+    return torch.stack([
+        w1*w2 - x1*x2 - y1*y2 - z1*z2,
+        w1*x2 + x1*w2 + y1*z2 - z1*y2,
+        w1*y2 - x1*z2 + y1*w2 + z1*x2,
+        w1*z2 + x1*y2 - y1*x2 + z1*w2
+    ], dim=-1)
+quaternion_to_matrix
+def quaternion_apply(q, v):
+    """ Aplica o quaternion `q` a um vetor 3D `v` """
+    q_conj = q.clone()
+    q_conj[..., 1:] = -q_conj[..., 1:]
+    v_as_quat = torch.cat([torch.zeros_like(v[..., :1]), v], dim=-1)
+    return quaternion_multiply(
+        quaternion_multiply(q, v_as_quat),
+        q_conj
+    )[..., 1:]
+
+def quaternion_invert(q):
+    """ Inverte o quaternion `q` """
+    q_conj = q.clone()
+    q_conj[..., 1:] *= -1
+    norm_squared = (q ** 2).sum(dim=-1, keepdim=True)
+    return q_conj / (norm_squared + 1e-8)
+
+def axis_angle_to_quaternion(axis_angle):
+    """ Converte eixo e ângulo para quaternion """
+    angles = axis_angle.norm(dim=-1, keepdim=True)
+    axis = axis_angle / (angles + 1e-8)
+    half = 0.5 * angles
+    sin_half = torch.sin(half)
+    cos_half = torch.cos(half)
+    return torch.cat([cos_half, axis * sin_half], dim=-1)

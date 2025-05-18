@@ -1,9 +1,7 @@
 import time
 import pickle
 from src.Datasets.BatchProcessor import BatchProcessDatav2
-from src.geometry.quaternions import or6d_to_quat, quat_to_or6D, from_to_1_0_0
 from scipy import linalg
-from pytorch3d.transforms import quaternion_multiply, quaternion_apply
 from torch.utils.data import DataLoader, Dataset
 import matplotlib.pyplot as plt
 import os
@@ -23,7 +21,15 @@ def load_model(args):
     model_dict[args.model_name].test = True
     function_dict[args.model_name] = eval_sample
     return model_dict, function_dict
-
+from src.geometry.quaternions import (
+    quaternion_apply,
+    quaternion_multiply,
+    quaternion_invert,
+    axis_angle_to_quaternion,
+    quat_to_or6D,
+    or6d_to_quat,
+    from_to_1_0_0,
+)
 
 def eval_sample(model, X, Q, A, S, tar_pos, tar_quat, pos_offset, skeleton: Skeleton, length, target_id, ifnoise=False):
     model = model.eval()

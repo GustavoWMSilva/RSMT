@@ -1,10 +1,16 @@
 import torch
-from pytorch3d.transforms import quaternion_apply, quaternion_multiply, quaternion_invert
 from src.Datasets.Style100Processor import StyleLoader
-from src.geometry.quaternions import or6d_to_quat, quat_to_or6D, from_to_1_0_0
 from src.utils import BVH_mod as BVH
 from src.utils.BVH_mod import Skeleton, find_secondary_axis
-
+from src.geometry.quaternions import (
+    quaternion_apply,
+    quaternion_multiply,
+    quaternion_invert,
+    axis_angle_to_quaternion,
+    quat_to_or6D,
+    or6d_to_quat,
+    from_to_1_0_0,
+)
 
 def load_model():
     model = torch.load('./results/Transitionv2_style100/myResults/141/m_save_model_198')

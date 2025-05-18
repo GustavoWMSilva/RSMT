@@ -1,6 +1,4 @@
-import numpy
 import numpy as np
-import pytorch3d.transforms
 _FLOAT_EPS = np.finfo(np.float32).eps
 _EPS4 = _FLOAT_EPS * 4.0
 _EPS16 = _FLOAT_EPS * 16.0
