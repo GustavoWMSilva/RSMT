@@ -1,7 +1,9 @@
 import time
 import pickle
 from src.Datasets.BatchProcessor import BatchProcessDatav2
+from src.geometry.quaternions import or6d_to_quat, quat_to_or6D, from_to_1_0_0
 from scipy import linalg
+from pytorch3d.transforms import quaternion_multiply, quaternion_apply
 from torch.utils.data import DataLoader, Dataset
 import matplotlib.pyplot as plt
 import os
@@ -21,19 +23,13 @@ def load_model(args):
     model_dict[args.model_name].test = True
     function_dict[args.model_name] = eval_sample
     return model_dict, function_dict
-from src.geometry.quaternions import (
-    quaternion_apply,
-    quaternion_multiply,
-    quaternion_invert,
-    axis_angle_to_quaternion,
-    quat_to_or6D,
-    or6d_to_quat,
-    from_to_1_0_0,
-)
+
 
 def eval_sample(model, X, Q, A, S, tar_pos, tar_quat, pos_offset, skeleton: Skeleton, length, target_id, ifnoise=False):
     model = model.eval()
-    model = model.cuda()
+    DEVICE = torch.device("cpu")  # ou "cuda" se quiser rodar na GPU
+
+    model = model.to(DEVICE)
     quats = Q
     offsets = pos_offset
     hip_pos = X
@@ -42,23 +38,23 @@ def eval_sample(model, X, Q, A, S, tar_pos, tar_quat, pos_offset, skeleton: Skel
     if ifnoise:
         noise = None
     else:
-        noise = torch.zeros(size=(gp.shape[0], 512), dtype=gp.dtype, device=gp.device).cuda()
+        noise = torch.zeros(size=(gp.shape[0], 512), dtype=gp.dtype, device=gp.device).to(DEVICE)
     tar_quat = quat_to_or6D(tar_quat)
-    target_style = model.get_film_code(tar_pos.cuda(), tar_quat.cuda())   # use random style seq
-    # target_style = model.get_film_code(gp.cuda(), loc_rot.cuda())
+    target_style = model.get_film_code(tar_pos.to(DEVICE), tar_quat.to(DEVICE))   # use random style seq
+    # target_style = model.get_film_code(gp.to(DEVICE), loc_rot.to(DEVICE))
     F = S[:, 1:] - S[:, :-1]
     F = model.phase_op.remove_F_discontiny(F)
     F = F / model.phase_op.dt
     phases = model.phase_op.phaseManifold(A, S)
 
     if(hasattr(model,"predict_phase") and model.predict_phase):
-        pred_pos, pred_rot, pred_phase, _,_ = model.shift_running(gp.cuda(), loc_rot.cuda(), phases.cuda(), A.cuda(),
-                                                            F.cuda(),
+        pred_pos, pred_rot, pred_phase, _,_ = model.shift_running(gp.to(DEVICE), loc_rot.to(DEVICE), phases.to(DEVICE), A.to(DEVICE),
+                                                            F.to(DEVICE),
                                                             target_style, noise, start_id=10, target_id=target_id,
                                                             length=length, phase_schedule=1.)
     else:
-        pred_pos, pred_rot, pred_phase, _ = model.shift_running(gp.cuda(), loc_rot.cuda(), phases.cuda(), A.cuda(),
-                                                            F.cuda(),
+        pred_pos, pred_rot, pred_phase, _ = model.shift_running(gp.to(DEVICE), loc_rot.to(DEVICE), phases.to(DEVICE), A.to(DEVICE),
+                                                            F.to(DEVICE),
                                                             target_style, noise, start_id=10, target_id=target_id,
                                                             length=length, phase_schedule=1.)
     pred_pos, pred_rot = pred_pos, pred_rot
@@ -154,10 +150,12 @@ class BatchRotateYCenterXZ(torch.nn.Module):
         super(BatchRotateYCenterXZ, self).__init__()
 
     def forward(self, global_positions, global_quats, ref_frame_id):
+        device = torch.device("cpu")  # Força uso de CPU
+
         ref_vector = torch.cross(global_positions[:, ref_frame_id:ref_frame_id + 1, 5:6, :] - global_positions[:,
                                                                                               ref_frame_id:ref_frame_id + 1,
                                                                                               1:2, :],
-                                 torch.tensor([0, 1, 0], dtype=global_positions.dtype, device=global_positions.device),
+                                 torch.tensor([0, 1, 0], dtype=global_positions.dtype, device=device),
                                  dim=-1)
         root_rotation = from_to_1_0_0(ref_vector)
 
@@ -613,7 +611,8 @@ def get_vel(pos):
     return pos[:, 1:] - pos[:, :-1]
 
 
-def get_gt_latent(style_encoder, rot, pos, batch_size=1000):
+def get_gt_latent(style_encoder, rot, pos, batch_size=1):
+    batch_size=1
     glb_vel, glb_pos, glb_rot, root_rotation = BatchProcessDatav2().forward(rot, pos)
     stard_id = 0
     data_size = glb_vel.shape[0]
@@ -621,9 +620,11 @@ def get_gt_latent(style_encoder, rot, pos, batch_size=1000):
     while stard_id < data_size:
         length = min(batch_size, data_size - stard_id)
         mp_batch = {}
-        mp_batch['glb_rot'] = quat_to_or6D(glb_rot[stard_id: stard_id + length]).cuda()
-        mp_batch['glb_pos'] = glb_pos[stard_id: stard_id + length].cuda()
-        mp_batch['glb_vel'] = glb_vel[stard_id: stard_id + length].cuda()
+        DEVICE = torch.device("cpu")  # ou "cuda" se quiser rodar na GPU
+
+        mp_batch['glb_rot'] = quat_to_or6D(glb_rot[stard_id: stard_id + length]).to(DEVICE)
+        mp_batch['glb_pos'] = glb_pos[stard_id: stard_id + length].to(DEVICE)
+        mp_batch['glb_vel'] = glb_vel[stard_id: stard_id + length].to(DEVICE)
         latent = style_encoder.cal_latent(mp_batch).cpu()
         if init:
             output = torch.empty((data_size,) + latent.shape[1:])
@@ -637,6 +638,7 @@ def get_gt_latent(style_encoder, rot, pos, batch_size=1000):
 def calculate_stat(conditions, dataLoader, data_size, function, models, skeleton, load_from_dict = False,data_name = None, window_size=1500):
     ##################################
     # condition{method{data}}
+    DEVICE = torch.device("cpu")  # ou "cuda" se quiser rodar na GPU
     if load_from_dict:
         print('load from calculated stat ...')
         t = time.time()
@@ -673,9 +675,10 @@ def calculate_stat(conditions, dataLoader, data_size, function, models, skeleton
                     local_quat = skeleton.inverse_kinematics_quats(global_quat)
                     local_quat = (remove_quat_discontinuities(local_quat.cpu()))
                     hip_pos = local_pos[:, :, 0:1, :]
-                    data, last_pos, last_rot = reconstruct_motion(models, function, hip_pos.cuda(), local_quat.cuda(),
-                                                                  A.cuda(), S.cuda(), tar_pos.cuda(),
-                                                                  tar_quat.cuda(), batch['offsets'].cuda(), skeleton,
+                    DEVICE = torch.device("cpu")  # ou "cuda" se quiser rodar na GPU
+                    data, last_pos, last_rot = reconstruct_motion(models, function, hip_pos.to(DEVICE), local_quat.to(DEVICE),
+                                                                  A.to(DEVICE), S.to(DEVICE), tar_pos.to(DEVICE),
+                                                                  tar_quat.to(DEVICE), batch['offsets'].to(DEVICE), skeleton,
                                                                   condition)
                     t2 = time.time()
 
@@ -712,9 +715,9 @@ def calculate_stat(conditions, dataLoader, data_size, function, models, skeleton
                     glb_vel, glb_pos, glb_rot, root_rotation = BatchProcessDatav2().forward(rot, pos)
                     # data[method]["latent"] = glb_vel.flatten(-2,-1).cpu()    # use vel
                     mp_batch = {}
-                    mp_batch['glb_rot'] = quat_to_or6D(glb_rot).cuda()
-                    mp_batch['glb_pos'] = glb_pos.cuda()
-                    mp_batch['glb_vel'] = glb_vel.cuda()
+                    mp_batch['glb_rot'] = quat_to_or6D(glb_rot).to(DEVICE)
+                    mp_batch['glb_pos'] = glb_pos.to(DEVICE)
+                    mp_batch['glb_vel'] = glb_vel.to(DEVICE)
                     # latent = style_encoder.cal_latent(mp_batch).cpu() # use latent
                     # label = style_encoder.cal_label(mp_batch).cpu()
                     # if start_id == 0:
@@ -761,7 +764,7 @@ def benchmarks(args,load_stat=False, data_name = None):
     # set dataset
     style_start = 0
     style_end = 90
-    batch_size = 500
+    batch_size = 1
     style_loader = StyleLoader()
     print('loading dataset ...')
     stat_file = 'style100_benchmark_65_25'

@@ -1,15 +1,8 @@
 from typing import List
 
 import torch
-from src.geometry.quaternions import (
-    quaternion_apply,
-    quaternion_multiply,
-    quaternion_invert,
-    axis_angle_to_quaternion,
-    quat_to_or6D,
-    or6d_to_quat,
-    from_to_1_0_0,
-)
+from pytorch3d.transforms import quaternion_multiply, quaternion_apply
+
 def forward_transform_hierarchy(local_transforms: torch.Tensor, level_transforms: List[List[int]],
                                 level_transform_parents: List[List[int]]):
     # used to store world transforms

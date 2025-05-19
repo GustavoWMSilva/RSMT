@@ -2,15 +2,7 @@ from typing import List
 
 import torch
 import numpy as np
-from src.geometry.quaternions import (
-    quaternion_apply,
-    quaternion_multiply,
-    quaternion_invert,
-    axis_angle_to_quaternion,
-    quat_to_or6D,
-    or6d_to_quat,
-    from_to_1_0_0,
-)
+from pytorch3d.transforms import quaternion_multiply, quaternion_apply, quaternion_invert
 
 # performs differentiable forward kinematics
 # local_transforms: local transform matrix of each transform (B, J, 4, 4)

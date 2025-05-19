@@ -3,23 +3,17 @@ import os
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
+from pytorch3d.transforms import quaternion_multiply, quaternion_apply
 from torch.utils.data import DataLoader, Dataset
+
 import src.Datasets.BaseLoader as mBaseLoader
 import src.Net.TransitionNet
 from src.Datasets.BaseLoader import BasedDataProcessor
 from src.Net.TransitionPhaseNet import TransitionNet_phase
+from src.geometry.quaternions import quat_inv, quat_mul, quat_mul_vec, from_to_1_0_0
 from src.utils.BVH_mod import Skeleton
 from src.utils.np_vector import interpolate_local, remove_quat_discontinuities
-from src.geometry.quaternions import (
-    quaternion_apply,
-    quaternion_multiply,
-    quaternion_invert,
-    axis_angle_to_quaternion,
-    quat_to_or6D,
-    or6d_to_quat,
-    from_to_1_0_0,
-    quat_inv, quat_mul, quat_mul_vec,
-)
+
 
 class BatchRotateYCenterXZ(torch.nn.Module):
     def __init__(self):

@@ -123,7 +123,7 @@ def training_style100_phase():
         style_loader = StyleLoader()
 
         data_module = StyleVAE_DataModule(style_loader, phase_file + loader.get_postfix_str(),style_file_name, dt=dt,
-                                         batch_size=32,mirror=0.0) # when apply phase, should avoid mirror
+                                         batch_size=1,mirror=0.0) # when apply phase, should avoid mirror
         stat = style_loader.load_part_to_binary("motion_statistics")
         mode = "pretrain"
 
@@ -144,7 +144,7 @@ def training_style100_phase():
     else:
 
         style_loader = StyleLoader()
-        data_module = StyleVAE_DataModule(style_loader, phase_file + loader.get_postfix_str(),style_file_name, dt=dt,batch_size=32,mirror=0.0)
+        data_module = StyleVAE_DataModule(style_loader, phase_file + loader.get_postfix_str(),style_file_name, dt=dt,batch_size=4,mirror=0.0)
         data_module.setup()
 
         check_file = ckpt_path + "/"
@@ -162,7 +162,8 @@ def training_style100_phase():
                     break
         model = TransitionNet_phase.load_from_checkpoint(check_file, moe_decoder=moe_net, pose_channels=9,phase_dim=phase_dim,
                                dt=dt,mode='fine_tune',strict=False)
-        model = model.cuda()
+        DEVICE = torch.device("cpu")  # ou "cuda" se quiser rodar na GPU
+        model = model.to(DEVICE)
         data_module.mirror = 0
         app = Application_phase(model, data_module)
         model.eval()

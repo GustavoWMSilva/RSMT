@@ -18,9 +18,11 @@ class DeepPhaseProcessor(BasedDataProcessor):
         self.process = BatchProcessData()
         self.dt = dt
     def gpu_fk(self,offsets,hip_pos,local_quat,skeleton):
-        quat = torch.from_numpy(local_quat).float().cuda()
-        offsets = torch.from_numpy(offsets).float().cuda()
-        hip_pos = torch.from_numpy(hip_pos).float().cuda()
+        
+        DEVICE = torch.device("cpu")  # ou "cuda" se quiser rodar na GPU
+        quat = torch.from_numpy(local_quat).float().to(DEVICE)
+        offsets = torch.from_numpy(offsets).float().to(DEVICE)
+        hip_pos = torch.from_numpy(hip_pos).float().to(DEVICE)
         gp,gq = skeleton.forward_kinematics(quat,offsets,hip_pos)
 
         return gp,gq[...,0:1,:]
@@ -59,9 +61,10 @@ class DeepPhaseProcessorv2(BasedDataProcessor):
         self.process = BatchProcessDatav2()
         self.dt = dt
     def gpu_fk(self,offsets,hip_pos,local_quat,skeleton):
-        quat = torch.from_numpy(local_quat).float().cuda()
-        offsets = torch.from_numpy(offsets).float().cuda()
-        hip_pos = torch.from_numpy(hip_pos).float().cuda()
+        DEVICE = torch.device("cpu")  # ou "cuda" se quiser rodar na GPU
+        quat = torch.from_numpy(local_quat).float().to(DEVICE)
+        offsets = torch.from_numpy(offsets).float().to(DEVICE)
+        hip_pos = torch.from_numpy(hip_pos).float().to(DEVICE)
         gp,gq = skeleton.forward_kinematics(quat,offsets,hip_pos)
 
         return gp,gq[...,0:1,:]
@@ -115,7 +118,7 @@ class DeephaseDataSet(torch.utils.data.Dataset):
 class Style100DataModule(pl.LightningDataModule):
     def __init__(self,batch_size,shuffle,data_loader:StyleLoader,window_size):
         super(Style100DataModule, self).__init__()
-        self.batch_size = batch_size
+        self.batch_size = 3
         self.shuffle = shuffle
 
         self.data_loader = data_loader

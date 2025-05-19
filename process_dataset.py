@@ -172,6 +172,7 @@ if __name__ == '__main__':
         print("Divide the dataset to train set and test set, and then argument datasets.")
         splitStyle100TrainTestSet()
     elif(args.train_phase_model==True):
+        torch.cuda.empty_cache()
         processDeepPhaseForStyle100(62,2)
     elif(args.add_phase_to_dataset==True):
         from add_phase_to_dataset import add_phase_to_100Style

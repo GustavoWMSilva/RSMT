@@ -5,9 +5,7 @@ import src.geometry.inverse_kinematics as ik
 import torch
 from src.geometry.vector import find_secondary_axis
 from np_vector import euler_to_quat,remove_quat_discontinuities,quat_to_euler
-from src.geometry.quaternions import (
-    quaternion_apply,
-    )
+import pytorch3d.transforms as trans
 
 
 channelmap = {
@@ -169,7 +167,7 @@ class Skeleton(object):
         #hip = torch.zeros_like(offsets[...,:1,:])
         gp = torch.empty(pos_shape,dtype=global_rot.dtype,device = global_rot.device)#[hip]
         gp[...,0:1,:] = hip[...,0:1,:]
-        offset = quaternion_apply(global_rot[..., self.parents[1:], :], offsets[..., 1:, :])
+        offset = trans.quaternion_apply(global_rot[..., self.parents[1:], :], offsets[..., 1:, :])
 
         for level in range(1, len(self._level_joints)):
             local_bone_indices = self._level_joints[level]

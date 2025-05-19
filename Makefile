@@ -8,12 +8,12 @@ PHASE_MODEL_PATH=save/phase/version_$(VERSION)/checkpoint_epoch$(EPOCH).pth
 MANIFOLD_MODEL=m_save_model_$(EPOCH)
 
 all: train_phase add_phase train_manifold train_sampler validate_sampler
-# PIP=./venv/Scripts/pip.exe
+PIP=./venv/Scripts/pip.exe
 
-# setup:
-# 	@echo ">>> Instalando dependências no venv..."
-# 	$(PIP) install torch==2.2.0+cu118 torchvision==0.17.0+cu118 torchaudio==2.2.0+cu118 --index-url https://download.pytorch.org/whl/cu118
-# 	$(PIP) install -r requirements.txt --no-deps
+setup:
+	@echo ">>> Instalando dependências no venv..."
+	$(PIP) install torch==2.2.0+cu118 torchvision==0.17.0+cu118 torchaudio==2.2.0+cu118 --index-url https://download.pytorch.org/whl/cu118
+	$(PIP) install -r requirements.txt --no-deps
 
 # preprocess:
 # 	@echo ">>> Preprocessando dataset..."

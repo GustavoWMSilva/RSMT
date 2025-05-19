@@ -179,7 +179,7 @@ class CyclicLRWithRestarts(_LRScheduler):
                  policy="cosine", policy_fn=None, min_lr=1e-7,
                  eta_on_restart_cb=None, eta_on_iteration_cb=None,
                  gamma=1.0, triangular_step=0.5):
-
+        batch_size=1
         if not isinstance(optimizer, Optimizer):
             raise TypeError('{} is not an Optimizer'.format(
                 type(optimizer).__name__))
@@ -225,7 +225,7 @@ class CyclicLRWithRestarts(_LRScheduler):
             self.eta_on_iteration_cb = ExpReduceMaxLROnIteration(gamma=gamma)
 
         self.last_epoch = last_epoch
-        self.batch_size = batch_size
+        self.batch_size = 3
         self.epoch_size = epoch_size
 
         self.iteration = 0
@@ -497,7 +497,7 @@ class DeepPhaseNet(pl.LightningModule):
         return loss['loss']
     def configure_optimizers(self):
         optimizer = AdamW(self.parameters(), lr=self.lr, weight_decay=self.weight_decay)
-        scheduler = CyclicLRWithRestarts(optimizer=optimizer, batch_size=32,
+        scheduler = CyclicLRWithRestarts(optimizer=optimizer, batch_size=1,
                                           epoch_size=75830, restart_period=10,
                                           t_mult=2, policy="cosine", verbose=True)
         return [optimizer], {'scheduler': scheduler, 'interval': 'step', 'frequency': 1}
@@ -569,7 +569,7 @@ class Application(nn.Module):
                 input.append(dataset[i].unsqueeze(0))
 
             batch = torch.cat(input, 0)
-            batch = batch.to("cuda")
+            batch = batch.to("cpu")
             phase = self.forward_window(batch)
             for key in phase.keys():
                 phase[key] = phase[key].cpu().numpy()

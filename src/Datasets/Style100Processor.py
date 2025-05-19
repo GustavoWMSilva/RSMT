@@ -179,11 +179,12 @@ class StyleLoader():
         def augment_motions(motions):
             for style in motions.keys():
                 content_keys = list(motions[style].keys())
+                DEVICE = torch.device("cpu")  # ou "cuda" se quiser rodar na GPU
                 for content in content_keys:
                     seq = motions[style][content]
-                    quats = torch.from_numpy(seq['quats']).unsqueeze(0).float().cuda()
-                    offsets = torch.from_numpy(seq['offsets']).unsqueeze(0).float().cuda()
-                    hips = torch.from_numpy(seq['hips']).unsqueeze(0).float().cuda()
+                    quats = torch.from_numpy(seq['quats']).unsqueeze(0).float().to(DEVICE)
+                    offsets = torch.from_numpy(seq['offsets']).unsqueeze(0).float().to(DEVICE)
+                    hips = torch.from_numpy(seq['hips']).unsqueeze(0).float().to(DEVICE)
                     # mirror
                     gp,gq = self.skeleton.forward_kinematics(quats,offsets,hips)
                     gp,gq = mirror(gp,gq)

@@ -1,16 +1,10 @@
 import torch
+from pytorch3d.transforms import quaternion_apply, quaternion_multiply, quaternion_invert
 from src.Datasets.Style100Processor import StyleLoader
+from src.geometry.quaternions import or6d_to_quat, quat_to_or6D, from_to_1_0_0
 from src.utils import BVH_mod as BVH
 from src.utils.BVH_mod import Skeleton, find_secondary_axis
-from src.geometry.quaternions import (
-    quaternion_apply,
-    quaternion_multiply,
-    quaternion_invert,
-    axis_angle_to_quaternion,
-    quat_to_or6D,
-    or6d_to_quat,
-    from_to_1_0_0,
-)
+
 
 def load_model():
     model = torch.load('./results/Transitionv2_style100/myResults/141/m_save_model_198')
@@ -23,8 +17,10 @@ class BatchRotateYCenterXZ(torch.nn.Module):
     def __init__(self):
         super(BatchRotateYCenterXZ, self).__init__()
     def forward(self,global_positions,global_quats,ref_frame_id):
+        device = torch.device("cpu")  # Força uso de CPU
+
         ref_vector = torch.cross(global_positions[:, ref_frame_id:ref_frame_id+1, 5:6, :] - global_positions[:, ref_frame_id:ref_frame_id+1, 1:2, :],
-                                 torch.tensor([0, 1, 0], dtype=global_positions.dtype, device=global_positions.device),dim=-1)
+                                 torch.tensor([0, 1, 0], dtype=global_positions.dtype, device=device),dim=-1)
         root_rotation = from_to_1_0_0(ref_vector)
 
         ref_hip = torch.mean(global_positions[:,:,0:1,[0,2]],dim=(1),keepdim=True)
@@ -51,21 +47,22 @@ class TransformSeq():
         return glb_pos,glb_rot
 class RunningLongSeq():
     def __init__(self,model,X,Q,A,S,tar_X,tar_Q,pos_offset,skeleton):
+        DEVICE = torch.device("cpu")  # ou "cuda" se quiser rodar na GPU
         self.window = 60
         self.source_idx = 0
         self.out_idx = 0
-        self.X = X.cuda()
-        self.Q = Q.cuda()
+        self.X = X.to(DEVICE)
+        self.Q = Q.to(DEVICE)
 
-        self.pos_offset = pos_offset.cuda()
-        self.tar_pos, self.tar_rot = skeleton.forward_kinematics(tar_Q[:, :120].cuda(),  self.pos_offset, tar_X[:, :120].cuda())
+        self.pos_offset = pos_offset.to(DEVICE)
+        self.tar_pos, self.tar_rot = skeleton.forward_kinematics(tar_Q[:, :120].to(DEVICE),  self.pos_offset, tar_X[:, :120].to(DEVICE))
         self.skeleton = skeleton
         self.transform = TransformSeq()
-        self.model = model.cuda()
+        self.model = model.to(DEVICE)
         self.phases = model.phase_op.phaseManifold(A, S)
-        self.outX = X[:,:10].cuda()
-        self.outQ = Q[:,:10].cuda()
-        self.outPhase = self.phases[:,:10].cuda()
+        self.outX = X[:,:10].to(DEVICE)
+        self.outQ = Q[:,:10].to(DEVICE)
+        self.outPhase = self.phases[:,:10].to(DEVICE)
 
         tar_id = [50,90,130,170,210,250,290,330]
         self.time = [40,40,40,40,40,80,40,40]
@@ -118,7 +115,8 @@ class RunningLongSeq():
 
 def synthesize(model, gp, gq, phases, tar_pos, tar_quat, pos_offset, skeleton: Skeleton, length, target_id, ifnoise=False):
     model = model.eval()
-    model = model.cuda()
+    DEVICE = torch.device("cpu")  # ou "cuda" se quiser rodar na GPU
+    model = model.to(DEVICE)
     #quats = Q
     offsets = pos_offset
   #  hip_pos = X
@@ -127,15 +125,15 @@ def synthesize(model, gp, gq, phases, tar_pos, tar_quat, pos_offset, skeleton: S
     if ifnoise:
         noise = None
     else:
-        noise = torch.zeros(size=(gp.shape[0], 512), dtype=gp.dtype, device=gp.device).cuda()
+        noise = torch.zeros(size=(gp.shape[0], 512), dtype=gp.dtype, device=gp.device).to(DEVICE)
     tar_quat = quat_to_or6D(tar_quat)
-    target_style = model.get_film_code(tar_pos.cuda(), tar_quat.cuda())  # use random style seq
-    # target_style = model.get_film_code(gp.cuda(), loc_rot.cuda())
+    target_style = model.get_film_code(tar_pos.to(DEVICE), tar_quat.to(DEVICE))  # use random style seq
+    # target_style = model.get_film_code(gp.to(DEVICE), loc_rot.to(DEVICE))
    # F = S[:, 1:] - S[:, :-1]
   #  F = model.phase_op.remove_F_discontiny(F)
    # F = F / model.phase_op.dt
    # phases = model.phase_op.phaseManifold(A, S)
-    pred_pos, pred_rot, pred_phase, _ = model.shift_running(gp.cuda(), loc_rot.cuda(), phases.cuda(), None,
+    pred_pos, pred_rot, pred_phase, _ = model.shift_running(gp.to(DEVICE), loc_rot.to(DEVICE), phases.to(DEVICE), None,
                                                             None,
                                                             target_style, noise, start_id=10, target_id=target_id,
                                                             length=length, phase_schedule=1.)

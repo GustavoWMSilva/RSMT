@@ -3,18 +3,10 @@ from typing import Optional
 
 import numpy as np
 import torch
+from pytorch3d.transforms import quaternion_multiply, quaternion_apply, quaternion_invert
+from src.geometry.quaternions import slerp, from_to_1_0_0
 from src.geometry.vector import normalize_vector
 from src.utils.BVH_mod import Skeleton
-from src.geometry.quaternions import (
-    quaternion_apply,
-    quaternion_multiply,
-    quaternion_invert,
-    axis_angle_to_quaternion,
-    quat_to_or6D,
-    or6d_to_quat,
-    from_to_1_0_0,
-    slerp,
-)
 def find_Yrotation_to_align_with_Xplus(q):
     '''Warning: the quat must be along y axis'''
     """
@@ -22,9 +14,11 @@ def find_Yrotation_to_align_with_Xplus(q):
     :return y_rotation: Quats tensor of rotations to apply to q to align with X+
     """
     shape = list(q.shape)
+    device = torch.device("cpu")  # Força uso de CPU
+
     q = q.reshape(-1,4)
-    mask = torch.tensor(np.array([[1.0, 0.0, 1.0]]), dtype=q.dtype,device=q.device).expand(q.shape[0], -1)
-    ref_vector = torch.tensor(np.array([[1.0, 0.0, 0.0]]), dtype=q.dtype,device=q.device).expand(q.shape[0], -1)
+    mask = torch.tensor(np.array([[1.0, 0.0, 1.0]]), dtype=q.dtype,device=device).expand(q.shape[0], -1)
+    ref_vector = torch.tensor(np.array([[1.0, 0.0, 0.0]]), dtype=q.dtype,device=device).expand(q.shape[0], -1)
     forward = mask * quaternion_apply(q, ref_vector)
     #forward = normalize_vector(forward)
     #target =  torch.tensor(np.array([[1, 0, 0]]), dtype=torch.float,device=q.device).expand(q.shape[0], -1)

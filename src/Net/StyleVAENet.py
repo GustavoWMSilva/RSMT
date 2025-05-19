@@ -113,7 +113,8 @@ class EmbeddingTwoFrameEncoder(nn.Module):
 
 class StyleVAENet(pl.LightningModule):
 
-    def __init__(self, skeleton, phase_dim:int=20,latent_size = 64,batch_size=64,mode="pretrain",net_mode=VAEMode.SINGLE):
+    def __init__(self, skeleton, phase_dim:int=20,latent_size = 64,batch_size=1,mode="pretrain",net_mode=VAEMode.SINGLE):
+        batch_size=1
         style_level_dim = [512,512]
         self.rot_rep_idx = [1, 5, 9, 10, 11, 12, 13, 15, 19]
         self.pos_rep_idx = [idx for idx in np.arange(0, skeleton.num_joints) if idx not in self.rot_rep_idx]

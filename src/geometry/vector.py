@@ -7,8 +7,10 @@ _4EPS32 = _EPS32 * 4.0
 # batch*n
 def find_secondary_axis(v):
     v = normalize_vector(v)
-    refx = torch.tensor(np.array([[1, 0, 0]]), dtype=v.dtype, device=v.device).expand(v.shape)
-    refy =  torch.tensor(np.array([[0, 1, 0]]), dtype=v.dtype, device=v.device).expand(v.shape)
+    device = torch.device("cpu")  # Força uso de CPU
+
+    refx = torch.tensor(np.array([[1, 0, 0]]), dtype=v.dtype, device=device).expand(v.shape)
+    refy =  torch.tensor(np.array([[0, 1, 0]]), dtype=v.dtype, device=device).expand(v.shape)
     dot = lambda x,y:(x*y).sum(-1,keepdim=True)
     refxv,refyv = dot(v,refx).abs(),dot(v,refy).abs()    # find proper axis
     ref = torch.where(refxv>refyv,refy,refx)

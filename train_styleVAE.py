@@ -100,7 +100,7 @@ def training_style100():
     latent_size = 32
     net_mode = VAEMode.SINGLE
 
-    batch_size = 32
+    batch_size = 3
     if (args.test == False):
         '''Create the model'''
         style_loader = StyleLoader()
@@ -136,8 +136,9 @@ def training_style100():
                     check_file += out[0]
                     print(check_file)
                     break
+        DEVICE = torch.device("cpu")  # ou "cuda" se quiser rodar na GPU
         model = StyleVAENet.load_from_checkpoint(check_file, moe_decoder=None,pose_channels=6,net_mode=net_mode,strict=False)
-        model = model.cuda()
+        model = model.to(DEVICE)
         src_motion = data_module.test_set.dataset["HighKnees"][0]
         source = BVH.read_bvh("source.bvh")
         '''check if space can produce netural space: encoding=False, style=kick'''

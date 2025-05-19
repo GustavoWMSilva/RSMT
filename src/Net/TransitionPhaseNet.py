@@ -17,7 +17,7 @@ from src.utils.BVH_mod import Skeleton, find_secondary_axis
 def eval_sample(model, X, Q,A,S,tar_pos,tar_quat, x_mean, x_std, pos_offset, skeleton: Skeleton, length, param):
     # FOR EXAMPLE
     model = model.eval()
-    model = model.cuda()
+    model = model.to(DEVICE)
     quats = Q
     offsets = pos_offset
     hip_pos = X
@@ -31,19 +31,21 @@ def eval_sample(model, X, Q,A,S,tar_pos,tar_quat, x_mean, x_std, pos_offset, ske
     noise = torch.zeros(size=(gp.shape[0], 512), dtype=gp.dtype, device=gp.device)
     edge_len = torch.norm(offsets[:, 1:], dim=-1, keepdim=True)
     tar_quat = quat_to_or6D(tar_quat)
-    target_style = model.get_film_code(tar_pos.cuda(),tar_quat.cuda())
+    target_style = model.get_film_code(tar_pos.to(DEVICE),tar_quat.to(DEVICE))
     F = S[:, 1:] - S[:, :-1]
     F = model.phase_op.remove_F_discontiny(F)
     F = F / model.phase_op.dt
     phases = model.phase_op.phaseManifold(A, S)
+    DEVICE = torch.device("cpu")  # ou "cuda" se quiser rodar na GPU
+
     if(model.predict_phase==True):
-     pred_pos, pred_rot, pred_phase, _,_ = model.shift_running(gp.cuda(), loc_rot.cuda(), phases.cuda(), A.cuda(), F.cuda(), target_style, None,
+     pred_pos, pred_rot, pred_phase, _,_ = model.shift_running(gp.to(DEVICE), loc_rot.to(DEVICE), phases.to(DEVICE), A.to(DEVICE), F.to(DEVICE), target_style, None,
                                                                start_id=10,
                                                                target_id=target_id, length=length,
                                                                phase_schedule=1.)
     else:
-        pred_pos, pred_rot, pred_phase, _ = model.shift_running(gp.cuda(), loc_rot.cuda(), phases.cuda(), A.cuda(),
-                                                                   F.cuda(), target_style, None,
+        pred_pos, pred_rot, pred_phase, _ = model.shift_running(gp.to(DEVICE), loc_rot.to(DEVICE), phases.to(DEVICE), A.to(DEVICE),
+                                                                   F.to(DEVICE), target_style, None,
                                                                    start_id=10,
                                                                    target_id=target_id, length=length,
                                                                    phase_schedule=1.)
@@ -255,7 +257,7 @@ class TransitionNet_phase(pl.LightningModule):
 
         self.l1_loss = nn.L1Loss()
         self.mse_loss = nn.MSELoss()
-        self.common_operator = CommonOperator(batch_size=32)
+        self.common_operator = CommonOperator(batch_size=1)
     def target_encoding(self, target_rots,target_pos, target_v):
         return self.target_encoder(torch.cat((target_pos.flatten(-2,-1),target_v.flatten(-2,-1),target_rots.flatten(-2,-1)), dim=-1))
 

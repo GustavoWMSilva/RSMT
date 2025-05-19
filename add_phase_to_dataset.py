@@ -19,14 +19,14 @@ class PhaseMotionStyle100Processor(mBaseLoader.BasedDataProcessor):
     def __call__(self, dict,skeleton,motion_datalaoder= None):
         offsets, hip_pos, quats = dict["offsets"],dict["hip_pos"],dict["quats"]
         style_loader = StyleLoader()
-        data_module = Style100DataModule(batch_size=32, shuffle=True, data_loader=style_loader, window_size=self.window)
+        data_module = Style100DataModule(batch_size=1, shuffle=True, data_loader=style_loader, window_size=self.window)
         # data_module.setup()# load std
         #stat = style_loader.load_part_to_binary("deepphase_vp_statistics")
         app = Application(self.model, data_module)
         self.app = app.float()
 
         gv = self.processor(dict,skeleton,style_loader)['gv']
-        gv = torch.from_numpy(gv).cuda()
+        gv = torch.from_numpy(gv)
         phase = {key:[] for key in ["A","S","B","F"]}
         h=[]
         q=[]
@@ -39,7 +39,7 @@ class PhaseMotionStyle100Processor(mBaseLoader.BasedDataProcessor):
             print("dataset length: {}".format(len(dataset)))
             if(len(dataset)==0):
                 continue
-            self.app.Net.to("cuda")
+            self.app.Net.to("cpu")
             phases = self.app.calculate_statistic_for_dataset(dataset)
             key_frame = self.window // 2   # 61th or 31th,
 

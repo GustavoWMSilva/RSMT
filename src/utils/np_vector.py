@@ -1,4 +1,6 @@
+import numpy
 import numpy as np
+import pytorch3d.transforms
 _FLOAT_EPS = np.finfo(np.float32).eps
 _EPS4 = _FLOAT_EPS * 4.0
 _EPS16 = _FLOAT_EPS * 16.0
@@ -279,6 +281,8 @@ def interpolate_local_(lcl_r_mb, lcl_q_mb, n_past, n_future):
     return inter_lcl_r_mb, inter_lcl_q_mb
 
 import torch
+device = torch.device("cpu")  # Força uso de CPU
+
 def remove_quat_discontinuities(rotations:torch.tensor):
     """
 

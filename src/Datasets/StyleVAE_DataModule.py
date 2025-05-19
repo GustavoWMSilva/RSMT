@@ -13,6 +13,7 @@ from src.Module.PhaseModule import PhaseOperator
 
 class Style100Dataset_phase(torch.utils.data.Dataset):
     def __init__(self, dataset:dict,batch_size,is_train,keep_equal=True):
+        batch_size=1
         self.is_train = is_train
         self.dataset = dataset
         self.n_styles = len(self.dataset.keys())
@@ -66,9 +67,10 @@ class Style100Dataset_phase(torch.utils.data.Dataset):
         np.random.shuffle(idx)
         sub_idx = idx[:batch_size]
         sub_motions = [motions[j] for j in sub_idx]
+        DEVICE = torch.device("cpu")  # ou "cuda" se quiser rodar na GPU
         for i in range(len(sub_motions)):
-            dict = {key:torch.from_numpy(sub_motions[i][3][key]).unsqueeze(0).cuda() for key in sub_motions[i][3].keys()}
-            sub_motions[i] = [torch.from_numpy(sub_motions[i][j]).unsqueeze(0).cuda() for j in range(3)]+[dict]
+            dict = {key:torch.from_numpy(sub_motions[i][3][key]).unsqueeze(0).to(DEVICE) for key in sub_motions[i][3].keys()}
+            sub_motions[i] = [torch.from_numpy(sub_motions[i][j]).unsqueeze(0).to(DEVICE) for j in range(3)]+[dict]
         return {"data":sub_motions,'sty':style_id}
     def expand_(self):
         for style in self.dataset:

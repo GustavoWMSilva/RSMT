@@ -4,7 +4,7 @@ import torch
 import math
 class CommonOperator():
     def __init__(self,batch_size):
-        self.batch_size = batch_size
+        self.batch_size = 3
         self.steps_per_epoch = None
         pass
 
